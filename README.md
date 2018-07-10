@@ -1,5 +1,5 @@
 # menoh
-DNN interface library for NodeJS (powered by Menoh(c/c++) and MKL-DNN)
+NodeJS binding for Menoh DNN inference library.
 
 ## Requirements
 * MKL-DNN library [v0.14](https://github.com/intel/mkl-dnn/tree/v0.14) or later.

@@ -1,7 +1,7 @@
 {
   "name": "menoh",
   "version": "1.0.0",
-  "description": "MKL-DNN for NodeJS (a wrapper for Menoh).",
+  "description": "NodeJS binding for Menoh DNN inference library.",
   "main": "index.js",
   "scripts": {
     "test": "mocha",
