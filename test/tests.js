@@ -436,6 +436,42 @@ describe('Failure tests with promise', function () {
                 assert.ok(err.message.includes('variable not found'));
             });
         });
+
+        it('should throw if input data is too short', function () {
+            return menoh.create(ONNX_FILE_PATH)
+            .then((builder) => {
+                builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+                builder.addOutput(MNIST_OUT_NAME);
+                const model = builder.buildModel({
+                    backendName: 'mkldnn'
+                });
+
+                const tooShort = [0, 1, 2];
+                model.setInputData(MNIST_IN_NAME, tooShort); // should throw
+            })
+            .then(assert.fail, (err) => {
+                assert.ok(err instanceof Error);
+                assert.ok(err.message.includes('too short'));
+            });
+        });
+
+        it('should throw if input data is too long', function () {
+            return menoh.create(ONNX_FILE_PATH)
+            .then((builder) => {
+                builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+                builder.addOutput(MNIST_OUT_NAME);
+                const model = builder.buildModel({
+                    backendName: 'mkldnn'
+                });
+
+                const tooLong = data.concat([0.666]);
+                model.setInputData(MNIST_IN_NAME, tooLong); // should throw
+            })
+            .then(assert.fail, (err) => {
+                assert.ok(err instanceof Error);
+                assert.ok(err.message.includes('too long'));
+            });
+        });
     });
 
     describe('#run tests', function () {

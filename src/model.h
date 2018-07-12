@@ -84,6 +84,10 @@ class Model : public Nan::ObjectWrap {
         explicit Model(ModelBuilder *mb);
         ~Model();
 
+        menoh_error_code getVarInfo(    std::string const& name,
+                                        v8::Local<v8::Array>* dims,
+                                        size_t *bufSize);
+
         std::string _backendName;
         std::string _backendConfig;
         menoh_model_handle _native;

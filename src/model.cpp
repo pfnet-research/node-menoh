@@ -8,6 +8,7 @@
 
 namespace nodeMenoh {
 
+
 ////////////////////////////////////////////////////////////////////////////////
 // ModelBuilder class
 
@@ -415,6 +416,35 @@ exit:
     return ec;
 }
 
+menoh_error_code Model::getVarInfo(     std::string const& name,
+                                        v8::Local<v8::Array> *dims,
+                                        size_t *bufSize) {
+    menoh_error_code ec;
+    int32_t dimsSize;
+    ec = menoh_model_get_variable_dims_size(_native, name.c_str(), &dimsSize);
+    if (ec) {
+        return ec;
+    }
+
+    size_t n = 1;
+    for (int32_t i = 0; i < dimsSize; ++i) {
+        int32_t d;
+        ec = menoh_model_get_variable_dims_at(_native, name.c_str(), i, &d);
+        if (ec) {
+            return ec;
+        }
+        if (dims) {
+            (*dims)->Set((uint32_t)i, Nan::New(d));
+        }
+        n *= (size_t)d;
+    }
+
+    if (bufSize) {
+        *bufSize = n;
+    }
+    return menoh_error_code_success;
+}
+
 NAN_METHOD(Model::New) {
     if (info.Length() < 1) {
         // Throw an Error that is passed back to JavaScript
@@ -482,8 +512,25 @@ NAN_METHOD(Model::SetInputData) {
     _dataObj = info[1]->ToObject();
     data = v8::Local<v8::Array>::Cast(_dataObj);
 
+    size_t n;
+    ec = model->getVarInfo(name, NULL, &n);
+    if (ec) {
+        Nan::ThrowTypeError(menoh_get_last_error_message());
+        return;
+    }
+
+    if (data->Length() < n) {
+        Nan::ThrowTypeError("node-menoh input data is too short");
+        return;
+    }
+
+    if (data->Length() > n) {
+        Nan::ThrowTypeError("node-menoh input data is too long");
+        return;
+    }
+
     // copy data into buf
-    for (uint32_t i = 0; i < data->Length(); ++i) {
+    for (uint32_t i = 0; i < n; ++i) {
         v8::Local<v8::Value> _it = Nan::Get(data, i).ToLocalChecked();
         buf[i] = (float)_it->NumberValue();
     }
@@ -545,24 +592,12 @@ NAN_METHOD(Model::GetOutput) {
         return;
     }
 
-    int32_t dimsSize;
-    ec = menoh_model_get_variable_dims_size(model->_native, name.c_str(), &dimsSize);
+    v8::Local<v8::Array> dims = Nan::New<v8::Array>();
+    size_t n;
+    ec = model->getVarInfo(name, &dims, &n);
     if (ec) {
         Nan::ThrowTypeError(menoh_get_last_error_message());
         return;
-    }
-
-    v8::Local<v8::Array> dims = Nan::New<v8::Array>();
-    size_t n = 1;
-    for (int32_t i = 0; i < dimsSize; ++i) {
-        int32_t d;
-        ec = menoh_model_get_variable_dims_at(model->_native, name.c_str(), i, &d);
-        if (ec) {
-            Nan::ThrowTypeError(menoh_get_last_error_message());
-            return;
-        }
-        dims->Set((uint32_t)i, Nan::New(d));
-        n *= (size_t)d;
     }
 
     // Copy whole data into a Javascript array.
