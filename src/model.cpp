@@ -9,6 +9,13 @@
 namespace nodeMenoh {
 
 
+static void bufferFreeCallback(char* buf, void* hint) {
+    (void)buf;
+    (void)hint;
+    // Ignore this callback. The attached buffers are free'd when
+    // the model object goes away. (See Model::~Model)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // ModelBuilder class
 
@@ -363,6 +370,7 @@ void Model::Init(v8::Local<v8::Object> exports) {
     Nan::SetPrototypeMethod(tpl, "setInputData", SetInputData);
     Nan::SetPrototypeMethod(tpl, "run", Run);
     Nan::SetPrototypeMethod(tpl, "getOutput", GetOutput);
+    Nan::SetPrototypeMethod(tpl, "getProfile", GetProfile);
 
     constructor.Reset(tpl->GetFunction());
     exports->Set(Nan::New("Model").ToLocalChecked(), Nan::GetFunction(tpl).ToLocalChecked());
@@ -603,14 +611,58 @@ NAN_METHOD(Model::GetOutput) {
     // Copy whole data into a Javascript array.
     v8::Local<v8::Array> data = Nan::New<v8::Array>();
     for (size_t i = 0; i < n; ++i) {
-        float v = buf[i];
-        data->Set((uint32_t)i, Nan::New(v));
+        data->Set((uint32_t)i, Nan::New(buf[i]));
     }
 
     // Finally put them in an Javascript object.
     v8::Local<v8::Object> results = Nan::New<v8::Object>();
     results->Set(Nan::New("data").ToLocalChecked(), data);
     results->Set(Nan::New("dims").ToLocalChecked(), dims);
+
+    info.GetReturnValue().Set(results);
+}
+
+NAN_METHOD(Model::GetProfile) {
+    if (info.Length() < 1) {
+        // Throw an Error that is passed back to JavaScript
+        Nan::ThrowTypeError("node-menoh insufficient number of arguments");
+        return;
+    }
+    if (!info[0]->IsString()) {
+        Nan::ThrowTypeError("node-menoh arg 1 must be a function");
+        return;
+    }
+
+    // Read output for the given name.
+    v8::String::Utf8Value _name(info[0]);
+    std::string name(*_name, _name.length());
+
+    Model* model = ObjectWrap::Unwrap<Model>(info.Holder());
+
+    float *buf;
+    menoh_error_code ec;
+    ec = menoh_model_get_variable_buffer_handle(
+        model->_native, name.c_str(), (void**)&buf);
+    if (ec) {
+        Nan::ThrowTypeError(menoh_get_last_error_message());
+        return;
+    }
+
+    v8::Local<v8::Array> dims = Nan::New<v8::Array>();
+    size_t n;
+    ec = model->getVarInfo(name, &dims, &n);
+    if (ec) {
+        Nan::ThrowTypeError(menoh_get_last_error_message());
+        return;
+    }
+
+    // Finally put them in an Javascript object.
+    v8::Local<v8::Object> results = Nan::New<v8::Object>();
+    results->Set(
+        Nan::New("buf").ToLocalChecked(), 
+        Nan::NewBuffer((char *)buf, sizeof(float)*n, bufferFreeCallback, 0).ToLocalChecked());
+    results->Set(Nan::New("dims").ToLocalChecked(), dims);
+    results->Set(Nan::New("dtype").ToLocalChecked(), Nan::New("float32").ToLocalChecked());
 
     info.GetReturnValue().Set(results);
 }

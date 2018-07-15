@@ -3,6 +3,8 @@
 const jimp = require("jimp");
 const assert = require('assert');
 const fs = require('fs');
+const ndarray = require('ndarray');
+const dtype = require('dtype');
 const _ = require('lodash');
 const menoh = require('..'); // This menoh module
 
@@ -47,10 +49,10 @@ function loadCategoryList() {
 // Find the indexes of the k largest values.
 function findIndicesOfTopK(a, k) {
     var outp = [];
-    for (var i = 0; i < a.length; i++) {
+    for (var i = 0; i < a.size; i++) {
         outp.push(i); // add index to output array
         if (outp.length > k) {
-            outp.sort((l, r) => { return a[r] - a[l]; });
+            outp.sort((l, r) => { return a.get(r) - a.get(l); });
             outp.pop();
         }
     }
@@ -61,81 +63,82 @@ console.log('Using menoh core version %s', menoh.getNativeVersion());
 
 const categoryList = loadCategoryList();
 
-loadInputImages()
-.then((imageList) => {
-    const data = [];
-    imageList.forEach((image, batchIdx) => {
-        // Crop the input image to a square shape.
-        cropToSquare(image);
+// Load ONNX file
+return menoh.create('../test/data/vgg16/VGG16.onnx')
+.then((builder) => {
+    const batchSize = INPUT_IMAGE_LIST.length;
 
-        // Resize it to 224 x 224.
-        image.resize(224, 224);
+    // Add input
+    builder.addInput(CONV1_1_IN_NAME, [
+        batchSize,  // 2 images in the data
+        3,          // number of channels
+        224,        // height
+        224         // width
+    ]);
 
-        // Convert bitmap to an array.
-        const numPixels = image.bitmap.width * image.bitmap.height;
-        const batchOffset = batchIdx * numPixels * 3;
-        image.scan(0, 0, image.bitmap.width, image.bitmap.height, function (x, y, idx) {
-            for (let c = 0; c < 3; ++c) {
-                const dataIdx = c * numPixels + y * image.bitmap.width + x + batchOffset;
-                data[dataIdx] = this.bitmap.data[idx + c];
-            }
+    // Add output
+    builder.addOutput(FC6_OUT_NAME);
+    builder.addOutput(SOFTMAX_OUT_NAME);
+
+    // Build a new Model
+    const model = builder.buildModel({
+        backendName: 'mkldnn'
+    })
+
+    // Create a view for input buffer using ndarray.
+    const iData = (function () {
+        const prof = model.getProfile(CONV1_1_IN_NAME);
+        return ndarray(new (dtype(prof.dtype))(prof.buf.buffer), prof.dims);
+    })();
+
+    // Create a view for each output buffers using ndarray.
+    const oDataFc6 = (function () {
+        const prof = model.getProfile(FC6_OUT_NAME);
+        return ndarray(new (dtype(prof.dtype))(prof.buf.buffer), prof.dims);
+    })();
+    const oDataSmx = (function () {
+        const prof = model.getProfile(SOFTMAX_OUT_NAME);
+        return ndarray(new (dtype(prof.dtype))(prof.buf.buffer), prof.dims);
+    })();
+
+    return loadInputImages()
+    .then((imageList) => {
+        const data = [];
+        imageList.forEach((image, batchIdx) => {
+            // Crop the input image to a square shape.
+            cropToSquare(image);
+
+            // Resize it to 224 x 224.
+            image.resize(224, 224);
+
+            // Now, copy the image data into to the input buffer in NCHW format.
+            image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
+                for (let c = 0; c < 3; ++c) {
+                    const val = image.bitmap.data[idx + c];
+                    iData.set(batchIdx, c, y, x, val);
+                }
+            });
         });
-    });
-
-    // Load ONNX file
-    return menoh.create('../test/data/vgg16/VGG16.onnx')
-    .then((builder) => {
-        const batchSize = imageList.length;
-
-        // Add input
-        builder.addInput(CONV1_1_IN_NAME, [
-            batchSize,  // 2 images in the data
-            3,          // number of channels
-            224,        // height
-            224         // width
-        ]);
-
-        // Add output
-        builder.addOutput(FC6_OUT_NAME);
-        builder.addOutput(SOFTMAX_OUT_NAME);
-
-        // Build a new Model
-        const model = builder.buildModel({
-            backendName: 'mkldnn'
-        })
-
-        // Set input data
-        model.setInputData(CONV1_1_IN_NAME, data);
 
         // Run the model
         return model.run()
         .then(() => {
-            const out1 = model.getOutput(FC6_OUT_NAME);
-            const out2 = model.getOutput(SOFTMAX_OUT_NAME);
-
-            // just to be sure
-            assert.equal(out1.dims[0] * out1.dims[1], out1.data.length);
-            assert.equal(out2.dims[0] * out2.dims[1], out2.data.length);
-            assert.equal(out1.dims[0], batchSize); // only applies to this example
-            assert.equal(out2.dims[0], batchSize); // only applies to this example
-
             // Print the results.
-            out1.data = _.chunk(out1.data, out1.dims[1]); // reshaped
-            out2.data = _.chunk(out2.data, out2.dims[1]); // reshaped
-            
             for (let bi = 0; bi < batchSize; ++bi) {
                 console.log('### Result for %s', INPUT_IMAGE_LIST[bi]);
-                console.log('fc6 out: %s ...', out1.data[bi].slice(0, 5).join(' '));
+                const fc6 = oDataFc6.pick(bi, null);
+                console.log('fc6 out: %s ...', [0, 1, 2].map((i) => fc6.get(i)).join(' '));
 
-                const topK = findIndicesOfTopK(out2.data[bi], 5);
+                const topK = findIndicesOfTopK(oDataSmx.pick(bi, null), 5);
                 console.log('Top 5 categories are:');
                 topK.forEach((i) => {
-                    console.log('[%d] %f %s', i, out2.data[bi][i], categoryList[i]);
+                    console.log('[%d] %f %s', i, oDataSmx.get(bi, i), categoryList[i]);
                 });
             }
-
-            // Happily done!
         });
     });
+})
+.catch((err) => {
+    console.log('Error:', err);
 });
 
