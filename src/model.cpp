@@ -9,6 +9,13 @@
 namespace nodeMenoh {
 
 
+static void bufferFreeCallback(char* buf, void* hint) {
+    (void)buf;
+    (void)hint;
+    // Ignore this callback. The attached buffers are free'd when
+    // the model object goes away. (See Model::~Model)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // ModelBuilder class
 
@@ -653,7 +660,7 @@ NAN_METHOD(Model::GetProfile) {
     v8::Local<v8::Object> results = Nan::New<v8::Object>();
     results->Set(
         Nan::New("buf").ToLocalChecked(), 
-        Nan::NewBuffer((char *)buf, sizeof(float)*n).ToLocalChecked());
+        Nan::NewBuffer((char *)buf, sizeof(float)*n, bufferFreeCallback, 0).ToLocalChecked());
     results->Set(Nan::New("dims").ToLocalChecked(), dims);
     results->Set(Nan::New("dtype").ToLocalChecked(), Nan::New("float32").ToLocalChecked());
 
