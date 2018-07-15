@@ -2,6 +2,8 @@
 
 const menoh = require('..');
 const jimp = require("jimp");
+const ndarray = require("ndarray");
+const dtype = require("dtype");
 const fs = require('fs');
 const _ = require('lodash');
 const assert = require('assert');
@@ -44,33 +46,57 @@ function preprocessImages(imageList) {
     return data;
 }
 
+function createBufferView(model, name) {
+    const prof = model.getProfile(name);
+    return ndarray(new (dtype(prof.dtype))(prof.buf.buffer), prof.dims);
+}
+
 // Find the indexes of the k largest values.
 function findIndicesOfTopK(a, k) {
     var outp = [];
-    for (var i = 0; i < a.length; i++) {
-        outp.push(i); // add index to output array
-        if (outp.length > k) {
-            outp.sort((l, r) => { return a[r] - a[l]; });
-            outp.pop();
+    if (Array.isArray(a)) {
+        for (var i = 0; i < a.length; i++) {
+            outp.push(i); // add index to output array
+            if (outp.length > k) {
+                outp.sort((l, r) => { return a[r] - a[l]; });
+                outp.pop();
+            }
+        }
+    } else {
+        for (var i = 0; i < a.size; i++) {
+            outp.push(i); // add index to output array
+            if (outp.length > k) {
+                outp.sort((l, r) => { return a.get(r) - a.get(l); });
+                outp.pop();
+            }
         }
     }
     return outp;
 }
 
-function validateOutput(model, batchSize) {
-    const out = model.getOutput(MNIST_OUT_NAME);
-    // sanity check
-    assert.equal(out.dims[0] * out.dims[1], out.data.length);
-    assert.equal(out.dims[0], batchSize);
+function validateOutput(output, batchSize) {
+    if (Array.isArray(output.data)) {
+        // sanity check
+        assert.equal(output.dims[0] * output.dims[1], output.data.length);
+        assert.equal(output.dims[0], batchSize);
 
-    // Evaluate results.
-    out.data = _.chunk(out.data, out.dims[1]); // reshaped
-    for (let bi = 0; bi < batchSize; ++bi) {
-        const topK = findIndicesOfTopK(out.data[bi], 1);
-        topK.forEach((idx) => {
-            assert.equal(idx, bi);
-        });
+        // Evaluate results.
+        output.data = _.chunk(output.data, output.dims[1]); // reshaped
+        for (let bi = 0; bi < batchSize; ++bi) {
+            const topK = findIndicesOfTopK(output.data[bi], 1);
+            topK.forEach((idx) => {
+                assert.equal(idx, bi);
+            });
+        }
+    } else {
+        for (let bi = 0; bi < batchSize; ++bi) {
+            const topK = findIndicesOfTopK(output.pick(bi, null), 1);
+            topK.forEach((idx) => {
+                assert.equal(idx, bi);
+            });
+        }
     }
+
 }
 
 describe('MNIST tests', function () {
@@ -107,18 +133,29 @@ describe('MNIST tests', function () {
                 backendName: 'mkldnn'
             })
 
-            model.setInputData(MNIST_IN_NAME, data);
+            const iv = createBufferView(model, MNIST_IN_NAME);
+            const ov = createBufferView(model, MNIST_OUT_NAME);
+
+            assert.equal(iv.size, data.length);
+            assert.deepEqual(iv.shape, [batchSize, 1, 28, 28]);
+            assert.equal(ov.size, 100);
+            assert.deepEqual(ov.shape, [batchSize, 10]);
+
+            // Write input data to input view.
+            data.forEach((v, i) => {
+                iv.data[i] = v;
+            });
 
             // Run the model
             model.run((err) => {
                 assert.ifError(err);
-                validateOutput(model, batchSize);
+                validateOutput(ov, batchSize);
                 done();
             });
         });
     });
 
-    it('Succeed with promise', function () {
+    it('Succeed using views', function () {
         // Load ONNX file
         return menoh.create(ONNX_FILE_PATH)
         .then((builder) => {
@@ -132,12 +169,23 @@ describe('MNIST tests', function () {
                 backendName: 'mkldnn'
             })
 
-            model.setInputData(MNIST_IN_NAME, data);
+            const iv = createBufferView(model, MNIST_IN_NAME);
+            const ov = createBufferView(model, MNIST_OUT_NAME);
+
+            assert.equal(iv.size, data.length);
+            assert.deepEqual(iv.shape, [batchSize, 1, 28, 28]);
+            assert.equal(ov.size, 100);
+            assert.deepEqual(ov.shape, [batchSize, 10]);
+
+            // Write input data to input view.
+            data.forEach((v, i) => {
+                iv.data[i] = v;
+            });
 
             // Run the model
             return model.run()
             .then(() => {
-                validateOutput(model, batchSize);
+                validateOutput(ov, batchSize);
             });
         });
     });
@@ -156,20 +204,25 @@ describe('MNIST tests', function () {
                 backendName: 'mkldnn'
             })
 
-            model.setInputData(MNIST_IN_NAME, data);
+            const iv = createBufferView(model, MNIST_IN_NAME);
+            const ov = createBufferView(model, MNIST_OUT_NAME);
+
+            data.forEach((v, i) => {
+                iv.data[i] = v;
+            });
 
             // Run the model
             return model.run()      // 1st run
             .then(() => {
-                validateOutput(model, batchSize);
+                validateOutput(ov, batchSize);
                 return model.run(); // 2nd run
             })
             .then(() => {
-                validateOutput(model, batchSize);
+                validateOutput(ov, batchSize);
                 return model.run(); // 3rd run
             })
             .then(() => {
-                validateOutput(model, batchSize);
+                validateOutput(ov, batchSize);
             });
         });
     });
@@ -187,20 +240,27 @@ describe('MNIST tests', function () {
             const model1 = builder.buildModel({
                 backendName: 'mkldnn'
             })
-            model1.setInputData(MNIST_IN_NAME, data);
+            const iv1 = createBufferView(model1, MNIST_IN_NAME);
+            const ov1 = createBufferView(model1, MNIST_OUT_NAME);
+
 
             // create model2
             const model2 = builder.buildModel({
                 backendName: 'mkldnn'
             })
-            model2.setInputData(MNIST_IN_NAME, data);
+            const iv2 = createBufferView(model2, MNIST_IN_NAME);
+            const ov2 = createBufferView(model2, MNIST_OUT_NAME);
+
+            data.forEach((v, i) => {
+                iv1.data[i] = v;
+                iv2.data[i] = v;
+            });
 
             // Run these models concurrently
             return Promise.all([ model1.run(), model2.run() ])
             .then(() => {
-                [model1, model2].forEach((model) => {
-                    validateOutput(model, batchSize);
-                });
+                validateOutput(ov1, batchSize);
+                validateOutput(ov2, batchSize);
             });
         });
     });
@@ -419,7 +479,111 @@ describe('Failure tests with promise', function () {
         });
     });
 
-    describe('#setInputData tests', function () {
+    describe('#run tests', function () {
+        it('should throw with invalid arg 1', function () {
+            return menoh.create(ONNX_FILE_PATH)
+            .then((builder) => {
+                builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+                builder.addOutput(MNIST_OUT_NAME);
+                const model = builder.buildModel({
+                    backendName: 'mkldnn'
+                });
+
+                const iv = createBufferView(model, MNIST_IN_NAME);
+
+                // Write input data to input view.
+                data.forEach((v, i) => {
+                    iv.data[i] = v;
+                });
+
+                model.run('bad')
+            })
+            .then(assert.fail, (err) => {
+                assert.ok(err instanceof Error);
+                assert.ok(err.message.includes('arg 1'));
+            });
+        });
+        it('second run() on the same model should fail', function () {
+            return menoh.create(ONNX_FILE_PATH)
+            .then((builder) => {
+                builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+                builder.addOutput(MNIST_OUT_NAME);
+                const model = builder.buildModel({
+                    backendName: 'mkldnn'
+                });
+
+                const iv = createBufferView(model, MNIST_IN_NAME);
+                const ov = createBufferView(model, MNIST_OUT_NAME);
+
+                // Write input data to input view.
+                data.forEach((v, i) => {
+                    iv.data[i] = v;
+                });
+
+                let err1 = null;
+                let err2 = null;
+
+                return Promise.all([
+                    model.run().catch((err) => {
+                        err1 = err;
+                    }),
+                    model.run().catch((err) => {
+                        err2 = err;
+                    }),
+                ])
+                .then(() => {
+                    assert.ok(!err1);
+                    assert.ok(err2 instanceof Error);
+                    assert.ok(err2.message.includes('in progress'));
+
+                    validateOutput(ov, batchSize);
+                });
+            })
+        });
+    });
+});
+
+describe('Deprecated feature tests', function () {
+    let imageList;
+    let batchSize;
+    let data;
+
+    before(function () {
+        return loadInputImages(INPUT_IMAGE_LIST)
+        .then((_imageList) => {
+            imageList = _imageList;
+            batchSize = imageList.length;
+            data = preprocessImages(imageList);
+        });
+    });
+
+    it('Succeed with setInputData and getOutput', function () {
+        // Load ONNX file
+        return menoh.create(ONNX_FILE_PATH)
+        .then((builder) => {
+            const batchSize = imageList.length;
+
+            builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+            builder.addOutput(MNIST_OUT_NAME);
+
+            // Make a new Model
+            const model = builder.buildModel({
+                backendName: 'mkldnn'
+            })
+
+            model.setInputData(MNIST_IN_NAME, data);
+
+            // Run the model
+            return model.run()
+            .then(() => {
+                const out = model.getOutput(MNIST_OUT_NAME);
+                validateOutput(out, batchSize);
+            });
+        });
+    });
+
+
+    describe('#setInputData failure tests', function () {
         it('should throw with invalid input data', function () {
             return menoh.create(ONNX_FILE_PATH)
             .then((builder) => {
@@ -474,59 +638,7 @@ describe('Failure tests with promise', function () {
         });
     });
 
-    describe('#run tests', function () {
-        it('should throw with invalid arg 1', function () {
-            return menoh.create(ONNX_FILE_PATH)
-            .then((builder) => {
-                builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
-                builder.addOutput(MNIST_OUT_NAME);
-                const model = builder.buildModel({
-                    backendName: 'mkldnn'
-                });
-
-                model.setInputData(MNIST_IN_NAME, data);
-
-                model.run('bad')
-            })
-            .then(assert.fail, (err) => {
-                assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('arg 1'));
-            });
-        });
-        it('second run() on the same model should fail', function () {
-            return menoh.create(ONNX_FILE_PATH)
-            .then((builder) => {
-                builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
-                builder.addOutput(MNIST_OUT_NAME);
-                const model = builder.buildModel({
-                    backendName: 'mkldnn'
-                });
-
-                model.setInputData(MNIST_IN_NAME, data);
-
-                let err1 = null;
-                let err2 = null;
-
-                return Promise.all([
-                    model.run().catch((err) => {
-                        err1 = err;
-                    }),
-                    model.run().catch((err) => {
-                        err2 = err;
-                    }),
-                ])
-                .then(() => {
-                    assert.ok(!err1);
-                    assert.ok(err2 instanceof Error);
-                    assert.ok(err2.message.includes('in progress'));
-
-                    validateOutput(model, batchSize);
-                });
-            })
-        });
-    });
-
-    describe('#getOutput tests', function () {
+    describe('#getOutput failure tests', function () {
         it('should throw with invalid output name', function () {
             return menoh.create(ONNX_FILE_PATH)
             .then((builder) => {

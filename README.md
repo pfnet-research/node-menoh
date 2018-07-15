@@ -1,10 +1,15 @@
 # menoh
 NodeJS binding for Menoh DNN inference library.
 
+## Features
+* Fast DNN inference on Intel CPU.
+* Support standard [ONNX](http://onnx.ai/) format.
+* Easy to use.
+
 ## Requirements
 * MKL-DNN library [v0.14](https://github.com/intel/mkl-dnn/tree/v0.14) or later.
-* ProtocolBuffers (Only tested with v3.5.1)
-* [Menoh(C/C++) library](https://github.com/pfnet-research/menoh) v1.x (Only tested with v1.0.2)
+* ProtocolBuffers (Tested with v3.5.1)
+* [Menoh(C/C++) library](https://github.com/pfnet-research/menoh) v1.x (Tested with v1.0.2)
 * NodeJS v6 or greater
 
 ## Supported OS
@@ -22,7 +27,7 @@ npm install menoh -S
 #### Mac & Linux
 Simply follow the instruction described [here](https://github.com/pfnet-research/menoh/blob/v1.0.2/README.md).
 
-For linux, you may need add `/usr/local/lib` to LD_LIBRARY_PATH depending on your linux distrubtion.
+For linux, you may need to add `/usr/local/lib` to LD_LIBRARY_PATH depending on your linux distrubtion.
 ```sh
 export LD_LIBRARY_PATH=/usr/local/lib
 ```
@@ -135,15 +140,28 @@ The config object can have two properties:
 You may build more than one model from the same builder.
 
 ### Model methods
-#### model.setInputData(input_var_name{string}, data{array})
-Sets input data for the give input name.
+#### model.getProfile(var_name{string}) => {object}
+Returns an object for the given name.
+The object has following properties:
+* dims {array}: Output buffer dimensions. (e.g. [1, 3, 244, 244])
+* buf {Buffer}: Output buffer attached to the variable.
+* dtype {string}: Data type.
+
+> Current revision supports only one data type, "float32".
 
 #### model.run(cb) => {Promise}
 Run inference. It returns promise if `cb` is not provided. The actual inference takes place
 in a background worker thread. You may run a different models concurrently to take advantage of
 available CPU cores.
 
+#### model.setInputData(input_var_name{string}, data{array})
+> DEPREACATED. Use model.getProfile() instead.
+
+Sets input data for the give input name.
+
 #### model.getOutput(output_var_name) => {object}
+> DEPREACATED. Use model.getProfile() instead.
+
 Returns output object generated during `model.run()` for the given output name.
 The output object has following properties:
 * dims {array}: Output data dimensions. (e.g. [1, 3, 244, 244])

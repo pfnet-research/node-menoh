@@ -100,6 +100,7 @@ class Model : public Nan::ObjectWrap {
         static NAN_METHOD(SetInputData);
         static NAN_METHOD(Run);
         static NAN_METHOD(GetOutput);
+        static NAN_METHOD(GetProfile);
 
         static Nan::Persistent<v8::Function> constructor;
 };
