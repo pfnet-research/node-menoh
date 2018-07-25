@@ -126,10 +126,12 @@ Returns promise if `cb` is not provided. The promise resolves to a new instance 
 ### ModelBuilder methods
 #### builder.addInput(input_var_name{string}, dims{array}) => {void}
 Add an input profile for the given name.
+> Data type is implicitly set to `float32`.
 
 #### builder.addOutput(output_var_name{string}) => {void}
 Add an output profile for the given name.
 > It currently takes no argument other than the name.
+> Data type is implicitly set to `float32`.
 
 #### builder.buildModel(config{object}) => {Model}
 Returns an executable model.
@@ -141,10 +143,10 @@ You may build more than one model from the same builder.
 
 ### Model methods
 #### model.getProfile(var_name{string}) => {object}
-Returns an object for the given name.
-The object has following properties:
-* dims {array}: Output buffer dimensions. (e.g. [1, 3, 244, 244])
-* buf {Buffer}: Output buffer attached to the variable.
+Returns a profile information for the given name.
+The returned object has following properties:
+* dims {array}: Dimensions of the attached buffer. (e.g. [1, 3, 244, 244])
+* buf {Buffer}: Reference to the buffer attached to the variable.
 * dtype {string}: Data type.
 
 > Current revision supports only one data type, "float32".
