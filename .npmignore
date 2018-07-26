@@ -3,6 +3,7 @@
 #tests
 test
 coverage
+example
 
 #build tools
 .travis.yml
