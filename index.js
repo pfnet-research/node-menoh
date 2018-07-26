@@ -1,12 +1,6 @@
 'use strict';
 
-let addon;
-try {
-    addon = require('./build/Release/menoh.node');
-} catch (err) {
-    console.log('Error:', err);
-    addon = require('./build/Debug/menoh.node');
-}
+const addon = require('./build/Release/menoh.node');
 
 // Promisify addon.create()
 (function () {
