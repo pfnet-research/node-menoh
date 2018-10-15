@@ -531,6 +531,53 @@ describe('Failure tests with promise', function () {
             })
         });
     });
+
+    it('Input variable not found', function () {
+        // Load ONNX file
+        return menoh.create(ONNX_FILE_PATH)
+        .then((builder) => {
+            const batchSize = imageList.length;
+
+            //builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+            builder.addOutput(MNIST_OUT_NAME);
+
+            assert.throws(() => {
+                const model = builder.buildModel({
+                    backendName: 'mkldnn'
+                })
+            }, (err) => {
+                assert.ok(err instanceof Error);
+                assert.ok(err.message.includes('variable not found'));
+                return true;
+            });
+        });
+    });
+
+    it('Output variable not found', function () {
+        // Load ONNX file
+        return menoh.create(ONNX_FILE_PATH)
+        .then((builder) => {
+            const batchSize = imageList.length;
+
+            builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+            //builder.addOutput(MNIST_OUT_NAME);
+
+            // Make a new Model
+            const model = builder.buildModel({
+                backendName: 'mkldnn'
+            })
+
+            const iv = createBufferView(model, MNIST_IN_NAME);
+
+            assert.throws(() => {
+                const ov = createBufferView(model, MNIST_OUT_NAME);
+            }, (err) => {
+                assert.ok(err instanceof Error);
+                assert.ok(err.message.includes('variable not found'));
+                return true;
+            });
+        });
+    });
 });
 
 describe('Deprecated feature tests', function () {
