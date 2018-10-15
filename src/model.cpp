@@ -145,24 +145,11 @@ NAN_METHOD(ModelBuilder::AddInput) {
     
     menoh_error_code ec;
 
-    if (dims.size() == 2) {
-        ec = menoh_variable_profile_table_builder_add_input_profile_dims_2(
-            mb->_vptBuilder, name.c_str(), menoh_dtype_float,
-            dims[0], dims[1]);
-        if (ec) {
-            Nan::ThrowTypeError(menoh_get_last_error_message());
-            return;
-        }
-    } else if (dims.size() == 4) {
-        ec = menoh_variable_profile_table_builder_add_input_profile_dims_4(
-            mb->_vptBuilder, name.c_str(), menoh_dtype_float,
-            dims[0], dims[1], dims[2], dims[3]);
-        if (ec) {
-            Nan::ThrowTypeError(menoh_get_last_error_message());
-            return;
-        }
-    } else {
-        Nan::ThrowTypeError("node-menoh size of input dims must be 2 or 4");
+    ec = menoh_variable_profile_table_builder_add_input_profile(
+        mb->_vptBuilder, name.c_str(), menoh_dtype_float,
+        data->Length(), &dims[0]);
+    if (ec) {
+        Nan::ThrowTypeError(menoh_get_last_error_message());
         return;
     }
 
@@ -194,9 +181,7 @@ NAN_METHOD(ModelBuilder::AddOutput) {
     std::string name(*_name, _name.length());
 
     menoh_error_code ec;
-    ec = menoh_variable_profile_table_builder_add_output_profile(
-            mb->_vptBuilder, name.c_str(), menoh_dtype_float
-            );
+    ec = menoh_variable_profile_table_builder_add_output_name(mb->_vptBuilder, name.c_str());
     if (ec) {
         Nan::ThrowTypeError(menoh_get_last_error_message());
         return;

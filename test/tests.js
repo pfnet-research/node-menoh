@@ -317,7 +317,7 @@ describe('Failure tests with callback', function () {
                     });
                 }, (err) => {
                     assert.ok(err instanceof Error);
-                    assert.ok(err.message.includes('variable not found'));
+                    assert.ok(err.message.includes('bad_input_name'));
                     return true;
                 });
                 done();
@@ -337,7 +337,7 @@ describe('Failure tests with callback', function () {
                     });
                 }, (err) => {
                     assert.ok(err instanceof Error);
-                    assert.ok(err.message.includes('variable not found'));
+                    assert.ok(err.message.includes('bad_output_name'));
                     return true;
                 });
                 done();
@@ -411,16 +411,6 @@ describe('Failure tests with promise', function () {
                 assert.ok(err.message.includes('arg 2'));
             });
         });
-        it('should throw with invalid dims size', function () {
-            return menoh.create(ONNX_FILE_PATH)
-            .then((builder) => {
-                builder.addInput(MNIST_IN_NAME, [ batchSize ]);
-            })
-            .then(assert.fail, (err) => {
-                assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('dims'));
-            });
-        });
     });
 
     describe('#addOutput tests', function () {
@@ -459,7 +449,7 @@ describe('Failure tests with promise', function () {
             })
             .then(assert.fail, (err) => {
                 assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('variable not found'));
+                assert.ok(err.message.includes('bad_input_name'));
             });
         });
 
@@ -474,7 +464,7 @@ describe('Failure tests with promise', function () {
             })
             .then(assert.fail, (err) => {
                 assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('variable not found'));
+                assert.ok(err.message.includes('bad_output_name'));
             });
         });
     });
@@ -597,7 +587,7 @@ describe('Deprecated feature tests', function () {
             })
             .then(assert.fail, (err) => {
                 assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('variable not found'));
+                assert.ok(err.message.includes('bad_input_name'));
             });
         });
 
