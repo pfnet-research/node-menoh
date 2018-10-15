@@ -453,6 +453,21 @@ describe('Failure tests with promise', function () {
             });
         });
 
+        it('should throw with unsupported dims size', function () {
+            return menoh.create(ONNX_FILE_PATH)
+            .then((builder) => {
+                builder.addInput(MNIST_IN_NAME, [ batchSize ]);
+                const model = builder.buildModel({
+                    backendName: 'mkldnn'
+                });
+            })
+            .then(assert.fail, (err) => {
+                assert.ok(err instanceof Error);
+                console.log(err.message)
+                assert.ok(err.message.includes('unsupported input dims'));
+            });
+        });
+
         it('should throw with invalid output name', function () {
             return menoh.create(ONNX_FILE_PATH)
             .then((builder) => {
