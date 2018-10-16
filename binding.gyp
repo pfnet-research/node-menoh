@@ -30,7 +30,7 @@
             }],
             [ 'OS=="win"', {
                 "variables": {
-                    "prebuild_path%": "deps/win/menoh_v1.0.2",
+                    "prebuild_path%": "deps/win/menoh_v1.1.0",
                 },
                 "msvs_settings": {
                     "VCCLCompilerTool": {

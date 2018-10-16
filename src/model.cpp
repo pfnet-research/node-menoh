@@ -145,24 +145,11 @@ NAN_METHOD(ModelBuilder::AddInput) {
     
     menoh_error_code ec;
 
-    if (dims.size() == 2) {
-        ec = menoh_variable_profile_table_builder_add_input_profile_dims_2(
-            mb->_vptBuilder, name.c_str(), menoh_dtype_float,
-            dims[0], dims[1]);
-        if (ec) {
-            Nan::ThrowTypeError(menoh_get_last_error_message());
-            return;
-        }
-    } else if (dims.size() == 4) {
-        ec = menoh_variable_profile_table_builder_add_input_profile_dims_4(
-            mb->_vptBuilder, name.c_str(), menoh_dtype_float,
-            dims[0], dims[1], dims[2], dims[3]);
-        if (ec) {
-            Nan::ThrowTypeError(menoh_get_last_error_message());
-            return;
-        }
-    } else {
-        Nan::ThrowTypeError("node-menoh size of input dims must be 2 or 4");
+    ec = menoh_variable_profile_table_builder_add_input_profile(
+        mb->_vptBuilder, name.c_str(), menoh_dtype_float,
+        data->Length(), &dims[0]);
+    if (ec) {
+        Nan::ThrowTypeError(menoh_get_last_error_message());
         return;
     }
 
@@ -194,9 +181,7 @@ NAN_METHOD(ModelBuilder::AddOutput) {
     std::string name(*_name, _name.length());
 
     menoh_error_code ec;
-    ec = menoh_variable_profile_table_builder_add_output_profile(
-            mb->_vptBuilder, name.c_str(), menoh_dtype_float
-            );
+    ec = menoh_variable_profile_table_builder_add_output_name(mb->_vptBuilder, name.c_str());
     if (ec) {
         Nan::ThrowTypeError(menoh_get_last_error_message());
         return;
@@ -307,6 +292,7 @@ void ModelBuilder::LoadWorker::HandleOKCallback() {
     const int argc = 0;
     v8::Local<v8::Function> cons = Nan::New<v8::Function>(constructor);
     v8::Local<v8::Object> obj = Nan::NewInstance(cons, argc, NULL).ToLocalChecked();
+    Nan::AsyncResource resource("ModelBuilder.LoadWorker.OKCallback");
 
     // Copy _data to ModelBuilder#_data.
     ModelBuilder* mb = ObjectWrap::Unwrap<ModelBuilder>(obj);
@@ -319,12 +305,12 @@ void ModelBuilder::LoadWorker::HandleOKCallback() {
         v8::Local<v8::Value> _argv[] = {
             v8::Exception::Error(Nan::New(menoh_get_last_error_message()).ToLocalChecked())
         };
-        callback->Call(1, _argv);
+        callback->Call(1, _argv, &resource);
         return;
     }
 
     v8::Local<v8::Value> _argv[] = { Nan::Undefined(), obj };
-    callback->Call(2, _argv);
+    callback->Call(2, _argv, &resource);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -687,8 +673,9 @@ void Model::RunWorker::Execute() {
 
 // Called by the main thread.
 void Model::RunWorker::HandleOKCallback() {
+    Nan::AsyncResource resource("Model.RunWorker.OKCallback");
     _model->_inProgress = false;
-    callback->Call(0, NULL); // emit closed event
+    callback->Call(0, NULL, &resource); // emit closed event
 }
 
 // Called by the main thread.

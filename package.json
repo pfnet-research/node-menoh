@@ -22,7 +22,7 @@
   "license": "MIT",
   "gypfile": true,
   "dependencies": {
-    "nan": "~2.8.0"
+    "nan": "~2.11.1"
   },
   "devDependencies": {
     "dtype": "^2.0.0",

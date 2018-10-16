@@ -317,7 +317,7 @@ describe('Failure tests with callback', function () {
                     });
                 }, (err) => {
                     assert.ok(err instanceof Error);
-                    assert.ok(err.message.includes('variable not found'));
+                    assert.ok(err.message.includes('bad_input_name'));
                     return true;
                 });
                 done();
@@ -337,7 +337,7 @@ describe('Failure tests with callback', function () {
                     });
                 }, (err) => {
                     assert.ok(err instanceof Error);
-                    assert.ok(err.message.includes('variable not found'));
+                    assert.ok(err.message.includes('bad_output_name'));
                     return true;
                 });
                 done();
@@ -411,16 +411,6 @@ describe('Failure tests with promise', function () {
                 assert.ok(err.message.includes('arg 2'));
             });
         });
-        it('should throw with invalid dims size', function () {
-            return menoh.create(ONNX_FILE_PATH)
-            .then((builder) => {
-                builder.addInput(MNIST_IN_NAME, [ batchSize ]);
-            })
-            .then(assert.fail, (err) => {
-                assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('dims'));
-            });
-        });
     });
 
     describe('#addOutput tests', function () {
@@ -459,7 +449,21 @@ describe('Failure tests with promise', function () {
             })
             .then(assert.fail, (err) => {
                 assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('variable not found'));
+                assert.ok(err.message.includes('bad_input_name'));
+            });
+        });
+
+        it('should throw with unsupported dims size', function () {
+            return menoh.create(ONNX_FILE_PATH)
+            .then((builder) => {
+                builder.addInput(MNIST_IN_NAME, [ batchSize ]);
+                const model = builder.buildModel({
+                    backendName: 'mkldnn'
+                });
+            })
+            .then(assert.fail, (err) => {
+                assert.ok(err instanceof Error);
+                assert.ok(err.message.includes('unsupported input dims'));
             });
         });
 
@@ -474,7 +478,7 @@ describe('Failure tests with promise', function () {
             })
             .then(assert.fail, (err) => {
                 assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('variable not found'));
+                assert.ok(err.message.includes('bad_output_name'));
             });
         });
     });
@@ -541,6 +545,53 @@ describe('Failure tests with promise', function () {
             })
         });
     });
+
+    it('Input variable not found', function () {
+        // Load ONNX file
+        return menoh.create(ONNX_FILE_PATH)
+        .then((builder) => {
+            const batchSize = imageList.length;
+
+            //builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+            builder.addOutput(MNIST_OUT_NAME);
+
+            assert.throws(() => {
+                const model = builder.buildModel({
+                    backendName: 'mkldnn'
+                })
+            }, (err) => {
+                assert.ok(err instanceof Error);
+                assert.ok(err.message.includes('variable not found'));
+                return true;
+            });
+        });
+    });
+
+    it('Output variable not found', function () {
+        // Load ONNX file
+        return menoh.create(ONNX_FILE_PATH)
+        .then((builder) => {
+            const batchSize = imageList.length;
+
+            builder.addInput(MNIST_IN_NAME, [ batchSize, 1, 28, 28 ]);
+            //builder.addOutput(MNIST_OUT_NAME);
+
+            // Make a new Model
+            const model = builder.buildModel({
+                backendName: 'mkldnn'
+            })
+
+            const iv = createBufferView(model, MNIST_IN_NAME);
+
+            assert.throws(() => {
+                const ov = createBufferView(model, MNIST_OUT_NAME);
+            }, (err) => {
+                assert.ok(err instanceof Error);
+                assert.ok(err.message.includes('variable not found'));
+                return true;
+            });
+        });
+    });
 });
 
 describe('Deprecated feature tests', function () {
@@ -597,7 +648,7 @@ describe('Deprecated feature tests', function () {
             })
             .then(assert.fail, (err) => {
                 assert.ok(err instanceof Error);
-                assert.ok(err.message.includes('variable not found'));
+                assert.ok(err.message.includes('bad_input_name'));
             });
         });
 
