@@ -9,7 +9,7 @@ NodeJS binding for Menoh DNN inference library.
 ## Requirements
 * MKL-DNN library [v0.14](https://github.com/intel/mkl-dnn/tree/v0.14) or later.
 * ProtocolBuffers (Tested with v3.5.1)
-* [Menoh(C/C++) library](https://github.com/pfnet-research/menoh) v1.x (Tested with v1.0.2)
+* [Menoh(C/C++) library](https://github.com/pfnet-research/menoh) v1.x (Tested with v1.1.0)
 * NodeJS v6 or greater
 
 ## Supported OS
@@ -25,7 +25,7 @@ npm install menoh -S
 
 ### Installing dependencies
 #### Mac & Linux
-Simply follow the instruction described [here](https://github.com/pfnet-research/menoh/blob/v1.0.2/README.md).
+Simply follow the instruction described [here](https://github.com/pfnet-research/menoh/blob/v1.1.0/README.md).
 
 For linux, you may need to add `/usr/local/lib` to LD_LIBRARY_PATH depending on your linux distrubtion.
 ```sh
@@ -35,14 +35,19 @@ export LD_LIBRARY_PATH=/usr/local/lib
 Or, you could add `/usr/local/lib` to [system library path](http://howtolamp.com/articles/adding-shared-libraries-to-system-library-path/).
 
 #### Windows
-You can download pre-build DLLs from [here](https://github.com/pfnet-research/menoh/releases/tag/v1.0.2).
+##### menoh import library and dll
+You can download pre-build DLLs from [here](https://github.com/pfnet-research/menoh/releases/tag/v1.1.0).
 The import library (menoh.lib) and its header files are bundled in this module and built during
 its installation.
-> Current version uses the import library built with *native* menoh v1.0.2.
-    
-You will need to copy the DLLs into a folder that is included in the `PATH` environment variable (e.g. C:Windows\\SysWOW64\\)
+> Current version uses the import library built with *native* menoh v1.1.0.
 
-> The mklml.dll (included in the pre-built package for the native menoh v1.0.2) depends on `msvcr120.dll`. If
+Copy menoh.dll found in the pre-build package to C:Windows\\System32\\.
+    
+##### MKL-DNN
+Follow [this instruction](https://github.com/intel/mkl-dnn/blob/master/README.md) to install MKL-DNN
+lbrary and its dependencies. You may optionally download prebuild pacakge from [here](https://github.com/pfnet-research/menoh/releases/tag/v1.1.0).
+
+> The mklml.dll (included in the pre-built package for the native menoh v1.1.0) depends on `msvcr120.dll`. If
 > your system does not have it, install [Visual C++ 2013 Redistibutable Package](https://support.microsoft.com/en-us/help/3179560/update-for-visual-c-2013-and-visual-c-redistributable-package).
 
 
