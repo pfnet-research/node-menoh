@@ -463,7 +463,6 @@ describe('Failure tests with promise', function () {
             })
             .then(assert.fail, (err) => {
                 assert.ok(err instanceof Error);
-                console.log(err.message)
                 assert.ok(err.message.includes('unsupported input dims'));
             });
         });
