@@ -1,6 +1,6 @@
 {
   "name": "menoh",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "NodeJS binding for Menoh DNN inference library.",
   "main": "index.js",
   "scripts": {
